@@ -1,7 +1,6 @@
 import os
 import sys
 import warnings
-
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -189,7 +188,12 @@ def manager_sales_situ(sales_today,sales_yesterday,sales_last_week,sales_last_mo
 
         merge_result['本日开单业务数'] = (merge_result[['理财/资管_本日','保险_本日','基金_本日','贵金属_本日']] > 0).sum(axis=1)
         merge_result['本周累积开单业务数'] = (merge_result[['理财/资管_本周累积','保险_本周累积','基金_本周累积','贵金属_本周累积']] > 0).sum(axis=1)
-
+        merge_result['4种业务开单情况'] = 4*(merge_result['本周累积开单业务数'] ==4).astype(int)
+        merge_result['3种业务开单情况'] = 3*(merge_result['本周累积开单业务数'] ==3).astype(int)
+        merge_result['2种业务开单情况'] = 2*(merge_result['本周累积开单业务数'] ==2).astype(int)
+        merge_result['1种业务开单情况'] = (merge_result['本周累积开单业务数'] ==1).astype(int)
+        merge_result['本周0产能'] = (merge_result['本周累积开单业务数']>0).astype(int)
+        merge_result['当日0产能'] = (merge_result['本日开单业务数']>0).astype(int)
         return merge_df2,merge_result
 
     elif cross_month == 1:
@@ -205,8 +209,8 @@ def manager_sales_situ(sales_today,sales_yesterday,sales_last_week,sales_last_mo
         merge_result['3种业务开单情况'] = 3*(merge_result['本周累积开单业务数'] ==3).astype(int)
         merge_result['2种业务开单情况'] = 2*(merge_result['本周累积开单业务数'] ==2).astype(int)
         merge_result['1种业务开单情况'] = (merge_result['本周累积开单业务数'] ==1).astype(int)
-        merge_result['本周0产能'] = np.where(merge_result['本周累积开单业务数'] >0,False,0)
-        merge_result['当日0产能'] = np.where(merge_result['本日开单业务数']>0,False,0)
+        merge_result['本周0产能'] = (merge_result['本周累积开单业务数']>0).astype(int)
+        merge_result['当日0产能'] = (merge_result['本日开单业务数']>0).astype(int)
         return merge_df3,merge_result
 
     elif cross_month == 2:
@@ -218,7 +222,12 @@ def manager_sales_situ(sales_today,sales_yesterday,sales_last_week,sales_last_mo
 
         merge_result['本日开单业务数'] = (merge_result[['理财/资管_本日','保险_本日','基金_本日','贵金属_本日']] > 0).sum(axis=1)
         merge_result['本周累积开单业务数'] = (merge_result[['理财/资管_本周累积','保险_本周累积','基金_本周累积','贵金属_本周累积']] > 0).sum(axis=1)
-
+        merge_result['4种业务开单情况'] = 4*(merge_result['本周累积开单业务数'] ==4).astype(int)
+        merge_result['3种业务开单情况'] = 3*(merge_result['本周累积开单业务数'] ==3).astype(int)
+        merge_result['2种业务开单情况'] = 2*(merge_result['本周累积开单业务数'] ==2).astype(int)
+        merge_result['1种业务开单情况'] = (merge_result['本周累积开单业务数'] ==1).astype(int)
+        merge_result['本周0产能'] = (merge_result['本周累积开单业务数']>0).astype(int)
+        merge_result['当日0产能'] = (merge_result['本日开单业务数']>0).astype(int)
         return merge_df3,merge_result
 
 
