@@ -274,7 +274,10 @@ def generate_report(df,last_month_df):
     # 将汇总行转换为DataFrame并调整位置
     df_sum = pd.DataFrame([sum_data])
     group_persons_result = pd.concat([df_sum, group_persons_result]).reset_index(drop=True)
-
+    custom_order = ['无组别','第一组','第二组','第三组','第四组']
+    group_persons_result['组别'] = pd.Categorical(group_persons_result['组别'],categories = custom_order,ordered=True)
+    group_persons_result = group_persons_result.sort_values('组别').reset_index(drop=True)
+    #group_persons_result = group_persons_result.sort_values(by='组别',ascending=False)
     # 计算开单率
     df_rate_result = group_persons_result [['组别','分行','理财经理总人数']].copy()
     df_rate_result['人数变动'] = group_persons_result ['理财经理总人数'] - group_persons_result ['上月底总人数']
@@ -295,6 +298,7 @@ def generate_report(df,last_month_df):
     df_week_rate['未开单人数(0产能)'] = group_persons_result['本周累积未开单人数(0产能)'] 
 
     df_rate_result = pd.concat({"":df_rate_result,'本日开单率情况':df_day_rate,'本周开单率情况':df_week_rate},axis=1)
+    #df_rate_result = df_rate_result.sort_values(by='组别',ascending=True)
     return group_persons_result,df_rate_result
 
 
