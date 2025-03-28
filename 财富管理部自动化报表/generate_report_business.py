@@ -313,11 +313,13 @@ def generate_interbusi_df(df):
 
     # 预处理：过滤无效数据
     filtered = df[df['分行'] != '总行'].copy()
+    assets = ['理财/资管','保险','基金','贵金属']
 
     # 按分行分组聚合计算各项报表信息
     agg_dict={"总人数":pd.NamedAgg(column='柜员号',aggfunc='nunique'),
               "TOP人数":pd.NamedAgg(column='4类业务合计_排名',aggfunc=lambda x: (x <= 1000).sum()),
               "4类业务合计":pd.NamedAgg(column='4类业务合计_本周',aggfunc='sum'),
+			  **{f'{asset}业务合计':pd.NamedAgg(column=f'{asset}_本周',aggfunc=lambda x: x.sum()) for asset in assets},
               }
 
     group_interbusi_result = filtered.groupby('分行', as_index=False).agg(**agg_dict)
@@ -335,6 +337,10 @@ def generate_interbusi_df(df):
 
     group_interbusi_result['TOP占比'] = (group_interbusi_result['TOP人数'] / group_interbusi_result['总人数']).round(4)
     group_interbusi_result['人均中收'] = (group_interbusi_result['4类业务合计'] / group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['理财/资管业务人均'] = (group_interbusi_result['理财/资管业务合计']/group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['保险业务人均'] = (group_interbusi_result['保险业务合计']/group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['基金业务人均'] = (group_interbusi_result['基金业务合计']/group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['贵金属业务人均'] = (group_interbusi_result['贵金属业务合计']/group_interbusi_result['总人数']).round(2)
     group_interbusi_result['人均中收(万元)'] = (group_interbusi_result['人均中收']/10000).round(2)
 
     # 将目标表按照人均中收进行排序
@@ -344,7 +350,7 @@ def generate_interbusi_df(df):
     sorted_main = main_data.sort_values(by='人均中收', ascending=False)
     group_interbusi_result = pd.concat([sorted_main, total_row], ignore_index=True)
 
-    columns_order = ['分行','总人数','TOP人数','TOP占比','4类业务合计','人均中收','人均中收(万元)']
+    columns_order = ['分行','总人数','TOP人数','TOP占比','4类业务合计','人均中收','人均中收(万元)','理财/资管业务合计','理财/资管业务人均','保险业务合计','保险业务人均','基金业务合计','基金业务人均','贵金属业务合计','贵金属业务人均']
 
     print("最终结果报表已生成完毕。\n")
 
