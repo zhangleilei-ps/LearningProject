@@ -222,7 +222,7 @@ if not os.path.exists('./理财经理开单情况统计表'):
     os.makedirs('./理财经理开单情况统计表')
 print(f"正在生成：理财经理开单情况统计表{param_date}.xlsx...\n")
 # 将中间结果及结果表写入excel
-output_path = os.path.join(abs_path,'理财经理开单情况统计表',f'理财经理开单情况统计表{param_date}.xlsx') 
+output_path = os.path.join(abs_path,'理财经理开单情况统计表',f'月度理财经理开单情况统计表{param_date}.xlsx') 
 
 # 核心写入逻辑
 with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
