@@ -241,7 +241,7 @@ def generate_report(df,last_month_df):
     last_month_df = last_month_df.groupby('分行',as_index=False).agg(上月底总人数=('柜员号','nunique'))
     
     # 定义资产类别（与图片列顺序一致）
-    assets = ['理财/资管','保险', '基金','贵金属']
+    assets = ['保险', '理财/资管','贵金属','基金']
     
     agg_dict={"理财经理总人数":pd.NamedAgg(column='柜员号',aggfunc='nunique'),
               **{f'{asset}_本日开单人数':pd.NamedAgg(column=f'{asset}_本日',aggfunc=lambda x: (x > 0).sum()) for asset in assets},
@@ -288,12 +288,12 @@ def generate_report(df,last_month_df):
     df_week_rate['合计开单率'] = ((1 - group_persons_result['本周累积未开单人数(0产能)'] / group_persons_result["理财经理总人数"]) ).round(4)
 
     for col in assets:
-        df_day_rate[f"{col}_本日开单率"] = (group_persons_result[f"{col}_本日开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
-        df_week_rate[f"{col}_本周累积开单率"] = (group_persons_result[f"{col}_本周累积开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
+        df_day_rate[f"{col}"] = (group_persons_result[f"{col}_本日开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
+        df_week_rate[f"{col}"] = (group_persons_result[f"{col}_本周累积开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
     
     df_day_rate['未开单人数(0产能)'] = group_persons_result['本日未开单人数(0产能)'] 
 
-    for i in [1,2,3,4]:
+    for i in [4,3,2,1]:
         df_week_rate[f"{i}种业务开单率"] = (group_persons_result[f"{i}种业务开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
     df_week_rate['未开单人数(0产能)'] = group_persons_result['本周累积未开单人数(0产能)'] 
 
