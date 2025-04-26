@@ -94,14 +94,13 @@ def load_data(date_str):
     manager_dict = find_file_and_load(manager_dates,folder_path,'理财经理详细信息')
 
     # 读取投资理财销售量统计表
-    # sales_dates = {
-    #     'sales_today': date_obj,
-    #     'sales_lm': last_day_of_last_month(date_obj),
-    #     'sales_ld': get_last_workday(date_obj),
-    #     'sales_lw': get_last_wednesday(date_obj)
-    # }
-    #
-    # sales_dict = find_file_and_load(sales_dates,folder_path,'投资理财销售量统计表')
+    sale_dates = {
+        'sale_today': date_obj,
+        'sale_lm': last_day_of_last_month(date_obj),
+        'sale_lw': get_last_wednesday(date_obj)
+    }
+
+    sales_dict = find_file_and_load(sale_dates,folder_path,'投资理财销售量统计表')
 
     # 读取投资理财中收统计表
     interbusi_dates = {
@@ -114,8 +113,8 @@ def load_data(date_str):
 
     print("加工目标表所需的源文件已读取完毕。\n")
     # 合并字典
-    return {**manager_dict,**interbusi_dict},cross_month
-    # return {**manager_dict,**sales_dict,**interbusi_dict},cross_month
+    # return {**manager_dict,**interbusi_dict},cross_month
+    return {**manager_dict,**sales_dict,**interbusi_dict},cross_month
 
 def get_prov_match(file_path):
     '''读取分行全简称对应关系及组别分类'''
@@ -127,23 +126,17 @@ def process_manager(df_manager,df_match):
     column_need = ["序号","柜员号","姓名","总行/一级分行名称","分行","组别"]
     return df_manager_match[column_need]
 
-# 处理销售明细情况与分行情况关联获得分行及组别
-def process_sales(df_sales,df_manager_match):
-    df_sales_processed = pd.merge(df_manager_match,df_sales,how = 'left',left_on = '柜员号',right_on = '人员工号',suffixes=('_manager', '_sales'))
-    df_sales_processed['理财/资管'] = df_sales_processed['理财']+df_sales_processed['资产管理计划']
-    df_sales_processed['贵金属'] = df_sales_processed['实物贵金属'] + df_sales_processed['黄金积存']
-    column_need = ["柜员号","姓名","总行/一级分行名称","分行","组别","理财/资管","理财","保险","基金","资产管理计划","贵金属","实物贵金属","黄金积存","合计"]
-    return df_sales_processed[column_need]
-
-# 处理中收统计情况与分行情况关联获得分行及组别
-def process_interbusi(df_interbusi,df_manager_match):
-    df_interbusi_processed = pd.merge(df_manager_match,df_interbusi,how = 'left',left_on = '柜员号',right_on = '人员工号',suffixes=('_manager', '_interbusi'))
-    df_interbusi_processed['理财/资管'] = df_interbusi_processed['理财']+df_interbusi_processed['资产管理计划']
-    df_interbusi_processed['贵金属'] = df_interbusi_processed['实物贵金属'] + df_interbusi_processed['黄金积存']
-    df_interbusi_processed['4类业务合计'] = df_interbusi_processed['理财/资管'] + df_interbusi_processed['保险'] + df_interbusi_processed['基金'] + df_interbusi_processed['贵金属']
-    column_need = ["柜员号","姓名","总行/一级分行名称","分行","组别","4类业务合计","理财/资管","理财","保险","基金","资产管理计划","贵金属","实物贵金属","黄金积存"]
-    return df_interbusi_processed[column_need]
-
+def process_sale_interbusi(df_sales,df_interbusi,df_manager_match):
+    df_sales_interbusi_processed = df_manager_match.merge(df_sales,how = 'left',left_on = '柜员号',right_on = '人员工号',suffixes=('_manager', '_sales')).merge(df_interbusi,how = 'left',left_on = '柜员号',right_on = '人员工号',suffixes=('','_interbusi'))
+    df_sales_interbusi_processed['理财/资管_sales'] = df_sales_interbusi_processed['理财']+df_sales_interbusi_processed['资产管理计划']
+    df_sales_interbusi_processed['贵金属_sales'] = df_sales_interbusi_processed['实物贵金属'] + df_sales_interbusi_processed['黄金积存']
+    df_sales_interbusi_processed['4类业务合计_sales'] = df_sales_interbusi_processed['理财/资管_sales'] + df_sales_interbusi_processed['保险'] + df_sales_interbusi_processed['基金'] + df_sales_interbusi_processed['贵金属_sales']
+    df_sales_interbusi_processed['理财/资管_interbusi'] = df_sales_interbusi_processed['理财_interbusi'] + df_sales_interbusi_processed['资产管理计划_interbusi']
+    df_sales_interbusi_processed['贵金属_interbusi'] = df_sales_interbusi_processed['实物贵金属_interbusi'] + df_sales_interbusi_processed['黄金积存_interbusi']
+    df_sales_interbusi_processed['4类业务合计_interbusi'] = df_sales_interbusi_processed['理财/资管_interbusi'] +df_sales_interbusi_processed['保险_interbusi'] +df_sales_interbusi_processed['基金_interbusi'] + df_sales_interbusi_processed['贵金属_interbusi']
+    df_sales_interbusi_processed = df_sales_interbusi_processed.rename(columns={'基金':'基金_sales','保险':'保险_sales'})
+    column_need = ["柜员号","姓名","总行/一级分行名称","分行","组别","4类业务合计_sales","理财/资管_sales","保险_sales","基金_sales","贵金属_sales","4类业务合计_interbusi","理财/资管_interbusi","保险_interbusi","基金_interbusi","贵金属_interbusi"]
+    return df_sales_interbusi_processed[column_need]
 # 对df进行预处理
 def all_df_reduce(dfs,df_match):
 
@@ -153,174 +146,58 @@ def all_df_reduce(dfs,df_match):
         if 'manager' in i :
             dfs_processed[i] = process_manager(dfs[i],df_match).fillna({ '组别': '无组别'})
         else: continue
-    for i in dfs.keys():
-        if 'sales' in i:
-            dfs_processed[i] = process_sales(dfs[i],dfs_processed['manager_today']).fillna(0)
-        else: continue
-    for i in dfs.keys():
-        if 'interbusi' in i:
-            dfs_processed[i] = process_interbusi(dfs[i],dfs_processed['manager_today']).fillna(0)
-        else: continue
-
+    dfs_processed['sales_interbusi_today'] = process_sale_interbusi(dfs['sale_today'],dfs['interbusi_today'],dfs_processed['manager_today']).fillna(0)
+    dfs_processed['sales_interbusi_lw'] = process_sale_interbusi(dfs['sale_lw'],dfs['interbusi_lw'],dfs_processed['manager_today']).fillna(0)
+    dfs_processed['sales_interbusi_lm'] = process_sale_interbusi(dfs['sale_lm'],dfs['interbusi_lm'],dfs_processed['manager_today']).fillna(0)
     return dfs_processed
 
-# 加工理财经理开单情况
-def manager_sales_situ(sales_today,sales_yesterday,sales_last_week,sales_last_month,cross_month):
 
-    merge_df1 = pd.merge(sales_today,sales_yesterday,on = '柜员号',how = 'left',suffixes=('', '_yd'))
-    merge_df2 = pd.merge(merge_df1,sales_last_week,on = '柜员号',how = 'left',suffixes=('', '_lw'))
+# 加工理财中收情况、销售量情况
+def manager_sales_interbusi_situ(interbusi_today, interbusi_last_week, interbusi_last_month, cross_month):
+    merge_df = pd.merge(interbusi_today, interbusi_last_week, on='柜员号', how='left', suffixes=('', '_lw'))
 
-    merge_result = merge_df2[["柜员号","姓名","分行","组别"]].copy()
-    asset_columns = ['理财/资管', '保险', '基金', '贵金属']
-
-    if cross_month == 0:
-
-        for col in asset_columns:
-            merge_result[f"{col}_本日"] = merge_df2[col]-merge_df2[f"{col}_yd"]
-            merge_result[f"{col}_本周累积"] = merge_df2[col]-merge_df2[f"{col}_lw"]
-
-        merge_result['本日开单业务数'] = (merge_result[['理财/资管_本日','保险_本日','基金_本日','贵金属_本日']] > 0).sum(axis=1)
-        merge_result['本周累积开单业务数'] = (merge_result[['理财/资管_本周累积','保险_本周累积','基金_本周累积','贵金属_本周累积']] > 0).sum(axis=1)
-        return merge_df2,merge_result
-
-    elif cross_month == 1:
-        merge_df3 = pd.merge(merge_df2,sales_last_month,on = '柜员号',how = 'left',suffixes=('', '_lm'))
-
-        for col in asset_columns:
-            merge_result[f"{col}_本日"] = merge_df3[col]-merge_df3[f"{col}_yd"]
-            merge_result[f"{col}_本周累积"] = merge_df3[col]-merge_df3[f"{col}_lw"] + merge_df3[f"{col}_lm"]
-
-        merge_result['本日开单业务数'] = (merge_result[['理财/资管_本日','保险_本日','基金_本日','贵金属_本日']] > 0).sum(axis=1)
-        merge_result['本周累积开单业务数'] = (merge_result[['理财/资管_本周累积','保险_本周累积','基金_本周累积','贵金属_本周累积']] > 0).sum(axis=1)
-
-        return merge_df3,merge_result
-
-    elif cross_month == 2:
-        merge_df3 = pd.merge(merge_df2,sales_last_month,on = '柜员号',how = 'left',suffixes=('', '_lm'))
-
-        for col in asset_columns:
-            merge_result[f"{col}_本日"] = merge_df3[col]-merge_df3[f"{col}_yd"] + merge_df3[f"{col}_lm"]
-            merge_result[f"{col}_本周累积"] = merge_df3[col]-merge_df3[f"{col}_lw"] + merge_df3[f"{col}_lm"]
-
-        merge_result['本日开单业务数'] = (merge_result[['理财/资管_本日','保险_本日','基金_本日','贵金属_本日']] > 0).sum(axis=1)
-        merge_result['本周累积开单业务数'] = (merge_result[['理财/资管_本周累积','保险_本周累积','基金_本周累积','贵金属_本周累积']] > 0).sum(axis=1)
-
-        return merge_df3,merge_result
-    
-# 加工理财中收情况
-def manager_interbusi_situ(interbusi_today,interbusi_last_week,interbusi_last_month,cross_month):
-
-    merge_df = pd.merge(interbusi_today,interbusi_last_week,on = '柜员号',how = 'left',suffixes=('', '_lw'))
-
-    merge_result = merge_df[["柜员号","姓名","分行"]].copy()
+    merge_result = merge_df[["柜员号", "姓名", "分行"]].copy()
     # 需要排名的资产列列表
-    asset_columns = ['4类业务合计', '理财/资管', '理财', '保险', '基金',
-                    '资产管理计划', '贵金属', '实物贵金属', '黄金积存']
+    asset_columns = ['4类业务合计_sales', '理财/资管_sales', '保险_sales', '基金_sales', '贵金属_sales','4类业务合计_interbusi', '理财/资管_interbusi', '保险_interbusi', '基金_interbusi', '贵金属_interbusi' ]
 
     if cross_month == 0:
         for col in asset_columns:
-            merge_result[f"{col}_本周"] = merge_df[col]-merge_df[f"{col}_lw"]
-        sort_fund = merge_result.sort_values(by='4类业务合计_本周', ascending=False)
-        sort_fund['4类业务合计_本周'] = round(sort_fund['4类业务合计_本周'] / 10000)
-        sort_fund['4类业务合计_本周'] = sort_fund.rename(columns={'4类业务合计_本周': '4类业务合计（万元）'}, inplace=True)
-        sort_fund = sort_fund[['分行', '姓名', '4类业务合计（万元）']]
+            merge_result[f"{col}_本周"] = merge_df[col] - merge_df[f"{col}_lw"]
+        # sort_fund = merge_result.sort_values(by='4类业务合计_本周', ascending=False)
+        # sort_fund['4类业务合计_本周'] = round(sort_fund['4类业务合计_本周'] / 10000)
+        # sort_fund['4类业务合计_本周'] = sort_fund.rename(columns={'4类业务合计_本周': '4类业务合计（万元）'}, inplace=True)
+        # sort_fund = sort_fund[['分行', '姓名', '4类业务合计（万元）']]
     elif cross_month == 2:
-        merge_df = pd.merge(merge_df,interbusi_last_month,on = '柜员号',how = 'left',suffixes=('', '_lm'))
+        merge_df = pd.merge(merge_df, interbusi_last_month, on='柜员号', how='left', suffixes=('', '_lm'))
         for col in asset_columns:
-            merge_result[f"{col}_本周"] = merge_df[col]-merge_df[f"{col}_lw"] + merge_df[f"{col}_lm"]
-        sort_fund = merge_result.sort_values(by='4类业务合计_本周', ascending=False)
-        sort_fund['4类业务合计_本周'] = round(sort_fund['4类业务合计_本周'] / 10000)
-        sort_fund['4类业务合计_本周'] = sort_fund.rename(columns={'4类业务合计_本周': '4类业务合计（万元）'}, inplace=True)
-        sort_fund = sort_fund[['分行', '姓名', '4类业务合计（万元）']]
-    new_columns_order = ["柜员号","姓名","分行"]
-    # 批量生成排名列
-    for col in asset_columns:
-        rank_col = f'{col}_排名'
-        merge_result[rank_col] = merge_result[f"{col}_本周"].rank(ascending=False, method='min').astype(int)
-        new_columns_order.extend([f"{col}_本周",rank_col])
-    
-    return merge_df,merge_result[new_columns_order],sort_fund
+            merge_result[f"{col}_本周"] = merge_df[col] - merge_df[f"{col}_lw"] + merge_df[f"{col}_lm"]
+        # sort_fund = merge_result.sort_values(by='4类业务合计_本周', ascending=False)
+        # sort_fund['4类业务合计_本周'] = round(sort_fund['4类业务合计_本周'] / 10000)
+        # sort_fund['4类业务合计_本周'] = sort_fund.rename(columns={'4类业务合计_本周': '4类业务合计（万元）'}, inplace=True)
+        # sort_fund = sort_fund[['分行', '姓名', '4类业务合计（万元）']]
+    # new_columns_order = ["柜员号", "姓名", "分行"]
+    # # 批量生成排名列
+    # for col in asset_columns:
+    #     rank_col = f'{col}_排名'
+    #     merge_result[rank_col] = merge_result[f"{col}_本周"].rank(ascending=False, method='min').astype(int)
+    #     new_columns_order.extend([f"{col}_本周", rank_col])
+    return merge_result
+    # return merge_df, merge_result[new_columns_order], sort_fund
 
-def generate_sales_df(df,last_month_df):
-
-    print("开始生成结果报表...\n")
-    # 预处理：过滤无效数据
-    filtered = df[df['组别'] != '无组别'].copy()
-    last_month_df = last_month_df[last_month_df['组别'] != '无组别'].copy()
-    last_month_df = last_month_df.groupby('分行',as_index=False).agg(上月底总人数=('柜员号','nunique'))
-    
-    # 定义资产类别（与图片列顺序一致）
-    assets = ['理财/资管','保险', '基金','贵金属']
-    
-    agg_dict={"理财经理总人数":pd.NamedAgg(column='柜员号',aggfunc='nunique'),
-              **{f'{asset}_本日开单人数':pd.NamedAgg(column=f'{asset}_本日',aggfunc=lambda x: (x > 0).sum()) for asset in assets},
-              '本日未开单人数(0产能)':pd.NamedAgg(column='本日开单业务数',aggfunc=lambda x: (x <= 0).sum()),
-              **{f'{asset}_本周累积开单人数': pd.NamedAgg(column=f'{asset}_本周累积',aggfunc=lambda x: (x > 0).sum()) for asset in assets},
-              '本周累积未开单人数(0产能)':pd.NamedAgg(column='本周累积开单业务数',aggfunc=lambda x: (x <= 0).sum())
-              }
-    # 按分行分组聚合计算开单人数
-    group_persons_result = filtered.groupby(['组别','分行'], as_index=False).agg(**agg_dict)
-
-    # 分组统计不同业务数的人数
-    asset_num_result = (
-        df.groupby(["分行", "组别"])["本周累积开单业务数"]
-        .value_counts()
-        .unstack(fill_value=0)
-        .reindex(columns=[1, 2, 3, 4], fill_value=0)  # 确保包含所有业务数
-        .rename(columns=lambda x: f"{x}种业务开单人数")
-        .reset_index()
-    )
-    group_persons_result = group_persons_result.merge(asset_num_result,on = ['分行','组别'],how = 'left')
-    group_persons_result = group_persons_result.merge(last_month_df,on = '分行',how = 'left')
-
-    # 创建汇总字典，计算全国开单人数
-    sum_data = {'组别': '无组别', '分行': '全国'}
-    # 对其他数值列求和
-    for col in group_persons_result.columns:
-        if col not in ['组别', '分行']:
-            sum_data[col] = group_persons_result[col].sum()
-
-    # 将汇总行转换为DataFrame并调整位置
-    df_sum = pd.DataFrame([sum_data])
-    group_persons_result = pd.concat([df_sum, group_persons_result]).reset_index(drop=True)
-
-    # 计算开单率
-    df_rate_result = group_persons_result [['组别','分行','理财经理总人数']].copy()
-    df_rate_result['人数变动'] = group_persons_result ['理财经理总人数'] - group_persons_result ['上月底总人数']
-
-    df_day_rate = pd.DataFrame() # group_persons_result [['组别','分行']].copy()
-    df_day_rate['合计开单率'] = ((1 - group_persons_result['本日未开单人数(0产能)'] / group_persons_result["理财经理总人数"]) ).round(4)
-    df_week_rate = pd.DataFrame() # group_persons_result [['组别','分行']].copy()
-    df_week_rate['合计开单率'] = ((1 - group_persons_result['本周累积未开单人数(0产能)'] / group_persons_result["理财经理总人数"]) ).round(4)
-
-    for col in assets:
-        df_day_rate[f"{col}_本日开单率"] = (group_persons_result[f"{col}_本日开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
-        df_week_rate[f"{col}_本周累积开单率"] = (group_persons_result[f"{col}_本周累积开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
-    
-    df_day_rate['未开单人数(0产能)'] = group_persons_result['本日未开单人数(0产能)'] 
-
-    for i in [1,2,3,4]:
-        df_week_rate[f"{i}种业务开单率"] = (group_persons_result[f"{i}种业务开单人数"] / group_persons_result["理财经理总人数"] ).round(4)
-    df_week_rate['未开单人数(0产能)'] = group_persons_result['本周累积未开单人数(0产能)'] 
-
-    df_rate_result = pd.concat({"":df_rate_result,'本日开单率情况':df_day_rate,'本周开单率情况':df_week_rate},axis=1)
-
-    print("最终结果报表已生成完毕。\n")
-
-    return group_persons_result,df_rate_result
-
-def generate_interbusi_df(df):
+def generate_sales_interbusi_df(df):
     print("开始生成结果报表...\n")
 
     # 预处理：过滤无效数据
     filtered = df[df['分行'] != '总行'].copy()
-    assets = ['理财/资管','保险','基金','贵金属']
+    assets_interbusi = ['理财/资管_interbusi','保险_interbusi','基金_interbusi','贵金属_interbusi']
+    assets_sales = ['理财/资管_sales','保险_sales','基金_sales','贵金属_sales']
 
     # 按分行分组聚合计算各项报表信息
     agg_dict={"总人数":pd.NamedAgg(column='柜员号',aggfunc='nunique'),
-              "TOP人数":pd.NamedAgg(column='4类业务合计_排名',aggfunc=lambda x: (x <= 1000).sum()),
-              "4类业务合计":pd.NamedAgg(column='4类业务合计_本周',aggfunc='sum'),
-			  **{f'{asset}业务合计':pd.NamedAgg(column=f'{asset}_本周',aggfunc=lambda x: x.sum()) for asset in assets},
+              "总中收":pd.NamedAgg(column='4类业务合计_interbusi_本周',aggfunc='sum'),
+			  **{f'{asset.split("_")[0]}中收合计':pd.NamedAgg(column=f'{asset}_本周',aggfunc=lambda x: x.sum()) for asset in assets_interbusi},
+              "总销量": pd.NamedAgg(column='4类业务合计_sales_本周', aggfunc='sum'),
+              **{f'{asset.split("_")[0]}销量合计': pd.NamedAgg(column=f'{asset}_本周', aggfunc=lambda x: x.sum()) for asset in assets_sales},
               }
 
     group_interbusi_result = filtered.groupby('分行', as_index=False).agg(**agg_dict)
@@ -336,13 +213,17 @@ def generate_interbusi_df(df):
     df_sum = pd.DataFrame([sum_data])
     group_interbusi_result = pd.concat([group_interbusi_result,df_sum]).reset_index(drop=True)
 
-    group_interbusi_result['TOP占比'] = (group_interbusi_result['TOP人数'] / group_interbusi_result['总人数']).round(4)
-    group_interbusi_result['人均中收'] = (group_interbusi_result['4类业务合计'] / group_interbusi_result['总人数']).round(2)
-    group_interbusi_result['理财/资管业务人均'] = (group_interbusi_result['理财/资管业务合计']/group_interbusi_result['总人数']).round(2)
-    group_interbusi_result['保险业务人均'] = (group_interbusi_result['保险业务合计']/group_interbusi_result['总人数']).round(2)
-    group_interbusi_result['基金业务人均'] = (group_interbusi_result['基金业务合计']/group_interbusi_result['总人数']).round(2)
-    group_interbusi_result['贵金属业务人均'] = (group_interbusi_result['贵金属业务合计']/group_interbusi_result['总人数']).round(2)
-    group_interbusi_result['人均中收(万元)'] = (group_interbusi_result['人均中收']/10000).round(2)
+    group_interbusi_result['人均中收'] = (group_interbusi_result['总中收'] / group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['理财/资管人均中收'] = (group_interbusi_result['理财/资管中收合计']/group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['保险人均中收'] = (group_interbusi_result['保险中收合计']/group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['基金人均中收'] = (group_interbusi_result['基金中收合计']/group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['贵金属人均中收'] = (group_interbusi_result['贵金属中收合计']/group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['人均销量'] = (group_interbusi_result['总销量'] / group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['理财/资管人均销量'] = (group_interbusi_result['理财/资管销量合计'] / group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['保险人均销量'] = (group_interbusi_result['保险销量合计'] / group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['基金人均销量'] = (group_interbusi_result['基金销量合计'] / group_interbusi_result['总人数']).round(2)
+    group_interbusi_result['贵金属人均销量'] = (group_interbusi_result['贵金属销量合计'] / group_interbusi_result['总人数']).round(2)
+
 
     # 将目标表按照人均中收进行排序
     main_data = group_interbusi_result[group_interbusi_result['分行'] != '总计']
@@ -351,7 +232,7 @@ def generate_interbusi_df(df):
     sorted_main = main_data.sort_values(by='人均中收', ascending=False)
     group_interbusi_result = pd.concat([sorted_main, total_row], ignore_index=True)
 
-    columns_order = ['分行','总人数','TOP人数','TOP占比','4类业务合计','人均中收','人均中收(万元)','理财/资管业务合计','理财/资管业务人均','保险业务合计','保险业务人均','基金业务合计','基金业务人均','贵金属业务合计','贵金属业务人均']
+    columns_order = ['分行','总人数','总中收','人均中收','理财/资管中收合计','理财/资管人均中收','保险中收合计','保险人均中收','基金中收合计','基金人均中收','贵金属中收合计','贵金属人均中收','总销量','人均销量','理财/资管销量合计','理财/资管人均销量','保险销量合计','保险人均销量','基金销量合计','基金人均销量','贵金属销量合计','贵金属人均销量']
 
     print("最终结果报表已生成完毕。\n")
 
@@ -365,27 +246,6 @@ def to_excel_change_index(df,writer,sheetname):
     # 导出到 Excel
     df_export.to_excel(writer, sheet_name=sheetname)
 
-def generate_sales_report(param_date):
-
-    print(f"开始生成{param_date}日期的理财经理开单情况统计表...\n")
-
-    dfs,cross_month = load_data(param_date)
-    dfs_processed = all_df_reduce(dfs,df_match)
-
-    sales_mid,df_sales_result = manager_sales_situ(dfs_processed['sales_today'],dfs_processed['sales_ld'],dfs_processed['sales_lw'],dfs_processed['sales_lm'],cross_month)
-    group_persons_result,df_rate_result = generate_sales_df(df_sales_result,dfs_processed['manager_lm'])
-
-    sales_output_path = os.path.join(abs_path,'理财经理开单情况统计表',f'理财经理开单情况统计表{param_date}.xlsx') 
-
-    print(f"正在生成：理财经理开单情况统计表{param_date}.xlsx...\n")
-
-    with pd.ExcelWriter(sales_output_path, engine='openpyxl') as writer:
-        to_excel_change_index(df_rate_result,writer,'结果通报表') 
-        to_excel_change_index(sales_mid,writer,'多日明细情况') 
-        to_excel_change_index(df_sales_result,writer,'用户中间表') 
-        to_excel_change_index(group_persons_result,writer,'机构中间表') 
-
-    print(f"理财经理开单情况统计表已保存至：{sales_output_path}\n")
 
 def generate_interbusi_report(param_date):
 
@@ -394,7 +254,7 @@ def generate_interbusi_report(param_date):
     dfs,cross_month = load_data(param_date)
     dfs_processed = all_df_reduce(dfs,df_match)
 
-    interbusi_mid,df_interbusi_result,business_sort = manager_interbusi_situ(dfs_processed['interbusi_today'],dfs_processed['interbusi_lw'],dfs_processed['interbusi_lm'],cross_month)
+    interbusi_mid,df_interbusi_result,business_sort = manager_sales_interbusi_situ(dfs_processed['interbusi_today'],dfs_processed['interbusi_lw'],dfs_processed['interbusi_lm'],cross_month)
     group_interbusi_result = generate_interbusi_df(df_interbusi_result)
 
     if not os.path.exists('./业务TOP周榜单'):
@@ -419,6 +279,28 @@ def generate_interbusi_report(param_date):
 
     print(f"投资理财中收统计表已保存至：{interbusi_output_path}\n")
 
+def generate_sales_interbusi_report(param_date):
+
+    print(f"开始生成{param_date}日期的投资理财中收及销量统计表...\n")
+
+    dfs,cross_month = load_data(param_date)
+    dfs_processed = all_df_reduce(dfs,df_match)
+
+    df_interbusi_result = manager_sales_interbusi_situ(dfs_processed['sales_interbusi_today'],dfs_processed['sales_interbusi_lw'],dfs_processed['sales_interbusi_lw'],cross_month)
+    group_interbusi_result = generate_sales_interbusi_df(df_interbusi_result)
+
+    if not os.path.exists('./投资理财中收及销量统计表'):
+        os.makedirs('./投资理财中收及销量统计表')
+    interbusi_output_path = os.path.join(abs_path,'投资理财中收及销量统计表',f'投资理财中收及销量统计表{param_date}.xlsx')
+
+    print(f"正在生成：投资理财中收及销量统计表{param_date}.xlsx...\n")
+
+    with pd.ExcelWriter(interbusi_output_path, engine='openpyxl') as writer:
+        to_excel_change_index(group_interbusi_result,writer,'结果通报表')
+        to_excel_change_index(df_interbusi_result,writer,'用户中间表')
+
+    print(f"投资理财中收及销量统计表已保存至：{interbusi_output_path}\n")
+
 if __name__ == "__main__":
 
     # 检查是否有足够的参数
@@ -430,6 +312,4 @@ if __name__ == "__main__":
     abs_path = os.getcwd()
     df_match = get_prov_match(os.path.join(abs_path,'分行全简称对应及组别分类.xlsx'))
 
-    # generate_sales_report(param_date)
-    generate_interbusi_report(param_date)
-
+    generate_sales_interbusi_report(param_date)
